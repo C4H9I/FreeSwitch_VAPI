@@ -1,0 +1,28 @@
+<!--
+  Конфигурация Event Socket Layer (ESL)
+  Файл: /etc/freeswitch/autoload_configs/event_socket.conf.xml
+
+  Используется для управления FreeSWITCH из Python-приложения
+-->
+
+<configuration name="event_socket.conf" description="Socket Client">
+  <settings>
+    <!-- IP для прослушивания -->
+    <param name="listen-ip" value="127.0.0.1"/>
+
+    <!-- Порт ESL -->
+    <param name="listen-port" value="8021"/>
+
+    <!-- Пароль для подключения -->
+    <param name="password" value="ClueCon"/>
+
+    <!-- ACL для доступа -->
+    <param name="apply-inbound-acl" value="loopback.auto"/>
+
+    <!-- NAT mapping -->
+    <param name="nat-map" value="false"/>
+
+    <!-- Остановить при ошибке биндинга -->
+    <param name="stop-on-bind-error" value="true"/>
+  </settings>
+</configuration>

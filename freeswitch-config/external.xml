@@ -1,0 +1,79 @@
+<!--
+  Внешний SIP профиль для подключения к провайдеру
+  Файл: /etc/freeswitch/sip_profiles/external.xml
+-->
+
+<profile name="external">
+  <settings>
+    <!-- Основные параметры -->
+    <param name="debug" value="0"/>
+    <param name="sip-trace" value="yes"/>
+    <param name="sip-capture" value="no"/>
+
+    <!-- IP адреса -->
+    <param name="rtp-ip" value="$${local_ip_v4}"/>
+    <param name="sip-ip" value="$${local_ip_v4}"/>
+    <param name="ext-rtp-ip" value="autonat:$${external_rtp_ip}"/>
+    <param name="ext-sip-ip" value="autonat:$${external_sip_ip}"/>
+
+    <!-- Порт -->
+    <param name="sip-port" value="5080"/>
+
+    <!-- Контекст -->
+    <param name="context" value="public"/>
+
+    <!-- Dialplan -->
+    <param name="dialplan" value="xml"/>
+
+    <!-- Регистрация (client mode) -->
+    <param name="aggressive-nat" value="true"/>
+    <param name="disable-transcoding" value="true"/>
+    <param name="disable-register" value="false"/>
+
+    <!-- Кодеки -->
+    <param name="codec-prefs" value="PCMU,PCMA"/>
+    <param name="codec-ms" value="20"/>
+    <param name="use-rtp-timer" value="true"/>
+
+    <!-- DTMF -->
+    <param name="dtmf-type" value="rfc2833"/>
+    <param name="liberal-dtmf" value="true"/>
+
+    <!-- RTP -->
+    <param name="rtp-timeout-sec" value="300"/>
+    <param name="rtp-hold-timeout-sec" value="1800"/>
+    <param name="rtp-port" value="16384"/>
+    <param name="rtp-port-range" value="16384-16398"/>
+
+    <!-- SRTP не требуется для G.711 -->
+    <param name="srtp-auth" value="false"/>
+
+    <!-- Таймеры SIP -->
+    <param name="session-timeout" value="1800"/>
+    <param name="minimum-session-expires" value="120"/>
+
+    <!-- Параметры вызова -->
+    <param name="hold-music" value="$${hold_music}"/>
+    <param name="outbound-proxy" value="sip.ips.com:5060"/>
+
+    <!-- TLS отключен (используем UDP) -->
+    <param name="tls" value="false"/>
+
+    <!-- Параметры регистрации -->
+    <param name="register" value="true"/>
+
+    <!-- VAD -->
+    <param name="vad" value="none"/>
+    <param name="ext-rtp-ip" value="autonat:$${external_rtp_ip}"/>
+  </settings>
+
+  <!-- Gateways загружаются из отдельной директории -->
+  <gateways>
+    <X-PRE-PROCESS cmd="include" data="external/*.xml"/>
+  </gateways>
+
+  <!-- Список доменов для авторизации -->
+  <domains>
+    <domain name="all" alias="false" parse="true"/>
+  </domains>
+</profile>

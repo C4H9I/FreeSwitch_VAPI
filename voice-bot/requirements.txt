@@ -1,0 +1,36 @@
+# Voice Bot Dependencies
+# Python 3.10+
+
+# ESL (Event Socket Layer) клиент для FreeSWITCH
+eventsocket>=2.0.0
+greenlet-esl>=0.1.0
+
+# AsyncIO
+aiohttp>=3.9.0
+websockets>=12.0
+
+# Yandex SpeechKit
+yandex-cloud>=0.9.0
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+
+# OpenAI API
+openai>=1.12.0
+
+# Аудио обработка
+pydub>=0.25.1
+soundfile>=0.12.1
+numpy>=1.26.0
+
+# Конфигурация
+pyyaml>=6.0
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Логирование
+loguru>=0.7.2
+
+# Утилиты
+httpx>=0.26.0
+tenacity>=8.2.0

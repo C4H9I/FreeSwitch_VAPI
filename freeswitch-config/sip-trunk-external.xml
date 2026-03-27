@@ -1,0 +1,53 @@
+<!--
+  SIP Profile для подключения к внешнему провайдеру
+
+  Провайдер: sip.ips.com
+  Username: sipuser
+  Codec: G.711 (PCMU/PCMA)
+-->
+
+<include>
+  <gateway name="ips-provider">
+    <!-- Основные параметры подключения -->
+    <param name="username" value="sipuser"/>
+    <param name="password" value="sippassword"/>
+    <param name="realm" value="sip.ips.com"/>
+    <param name="proxy" value="sip.ips.com:5060"/>
+    <param name="register" value="true"/>
+    <param name="register-transport" value="udp"/>
+
+    <!-- Параметры регистрации -->
+    <param name="register-proxy" value="sip.ips.com:5060"/>
+    <param name="expire-seconds" value="600"/>
+    <param name="retry-seconds" value="30"/>
+
+    <!-- Caller ID -->
+    <param name="caller-id-in-from" value="true"/>
+
+    <!-- SIP таймеры -->
+    <param name="sip-options-seconds" value="60"/>
+
+    <!-- Контекст для входящих звонков -->
+    <param name="context" value="public"/>
+
+    <!-- Кодеки (G.711) -->
+    <param name="codec-prefs" value="PCMU,PCMA"/>
+    <param name="codec-ms" value="20"/>
+
+    <!-- DTMF -->
+    <param name="dtmf-type" value="rfc2833"/>
+    <param name="dtmf-duration" value="2000"/>
+
+    <!-- NAT traversal -->
+    <param name="ext-rtp-ip" value="autonat:$${external_rtp_ip}"/>
+    <param name="ext-sip-ip" value="autonat:$${external_sip_ip}"/>
+    <param name="rtp-ip" value="$${local_ip_v4}"/>
+    <param name="sip-ip" value="$${local_ip_v4}"/>
+
+    <!-- Отладка -->
+    <param name="sip-trace" value="yes"/>
+
+    <!-- Ping для поддержания соединения -->
+    <param name="ping" value="25"/>
+  </gateway>
+</include>

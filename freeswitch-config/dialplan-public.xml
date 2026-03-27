@@ -1,0 +1,49 @@
+<!--
+  Dialplan для входящих звонков от SIP-провайдера
+
+  Входящие звонки направляются в Voice Bot приложение
+-->
+
+<include>
+  <context name="public">
+    <!-- Входящий звонок от провайдера -->
+    <extension name="incoming-from-provider">
+      <condition field="destination_number" expression="^(.+)$">
+        <!-- Логирование начала звонка -->
+        <action application="log" data="INFO === Incoming call from ${caller_id_number} to ${destination_number} ==="/>
+
+        <!-- Ответ на звонок -->
+        <action application="answer"/>
+
+        <!-- Небольшая пауза для установления соединения -->
+        <action application="sleep" data="500"/>
+
+        <!-- Приветственное сообщение (можно убрать если не нужно) -->
+        <!-- <action application="playback" data="ivr/ivr-welcome_to_freeswitch.wav"/> -->
+
+        <!-- Подключение к Voice Bot через Event Socket -->
+        <!-- События звонка отправляются на Python-приложение -->
+        <action application="socket" data="127.0.0.1:8084 async full"/>
+
+        <!-- Завершение звонка -->
+        <action application="hangup"/>
+      </condition>
+    </extension>
+
+    <!-- Тестовый extension для проверки работоспособности -->
+    <extension name="test-echo">
+      <condition field="destination_number" expression="^9999$">
+        <action application="answer"/>
+        <action application="echo"/>
+      </condition>
+    </extension>
+
+    <!-- Extension для проверки звука -->
+    <extension name="test-music">
+      <condition field="destination_number" expression="^9998$">
+        <action application="answer"/>
+        <action application="playback" data="$${hold_music}"/>
+      </condition>
+    </extension>
+  </context>
+</include>
