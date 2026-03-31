@@ -62,7 +62,6 @@ class OutboundSession:
         self.reader_task: Optional[asyncio.Task] = None
 
     async def bootstrap(self) -> None:
-        await self._send_command("connect")
         self.channel_data = await self._read_channel_data()
         await self._send_command("myevents")
         await self._send_command("linger")
@@ -149,12 +148,15 @@ class OutboundSession:
                 reason = frame.headers.get("Content-Disposition") or frame.body or "call disconnected"
                 raise RuntimeError(f"FreeSWITCH closed outbound socket before CHANNEL_DATA: {reason}")
 
-            if frame.content_type == "command/reply":
-                continue
+            if frame.headers.get("Unique-ID") or frame.headers.get("Caller-Caller-ID-Number"):
+                return frame.headers
 
             event_data = self._parse_event_body(frame.body)
             if event_data.get("Caller-Caller-ID-Number") or event_data.get("Unique-ID"):
                 return event_data
+
+            if frame.content_type == "command/reply":
+                continue
 
             if frame.headers:
                 logger.debug(f"Skipping ESL frame while waiting for CHANNEL_DATA: {frame.headers}")
