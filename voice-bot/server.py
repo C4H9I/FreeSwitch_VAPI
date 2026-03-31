@@ -85,20 +85,26 @@ class OutboundSession:
     async def execute(self, app: str, arg: str = "") -> None:
         lines = [
             "sendmsg",
+            "content-type: text/plain",
             "call-command: execute",
             "event-lock: true",
             f"execute-app-name: {app}",
         ]
         if arg:
             lines.append(f"execute-app-arg: {arg}")
+        logger.info(f"ESL execute: app={app!r} arg={arg!r}")
         await self._send_command("\n".join(lines))
 
     async def playback(self, wav_path: Path) -> None:
+        logger.info(f"Playback file: {wav_path} size={wav_path.stat().st_size if wav_path.exists() else 'missing'}")
         await self.execute("playback", str(wav_path))
         duration = get_wav_duration(wav_path)
         await self._sleep_or_hangup(duration + 0.2)
 
     async def record(self, wav_path: Path, max_seconds: int, silence_threshold: int = 200, silence_hits: int = 3) -> None:
+        logger.info(
+            f"Record target: {wav_path} max_seconds={max_seconds} silence_threshold={silence_threshold} silence_hits={silence_hits}"
+        )
         await self.execute("record", f"{wav_path} {max_seconds} {silence_threshold} {silence_hits}")
         await self._wait_for_recording(wav_path, max_seconds + 2)
 
