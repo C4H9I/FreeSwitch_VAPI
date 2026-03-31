@@ -149,17 +149,22 @@ class OutboundSession:
                 raise RuntimeError(f"FreeSWITCH closed outbound socket before CHANNEL_DATA: {reason}")
 
             if frame.headers.get("Unique-ID") or frame.headers.get("Caller-Caller-ID-Number"):
+                logger.info(f"Received outbound socket headers: {frame.headers}")
                 return frame.headers
 
             event_data = self._parse_event_body(frame.body)
             if event_data.get("Caller-Caller-ID-Number") or event_data.get("Unique-ID"):
+                logger.info(f"Received outbound socket event data: {event_data}")
                 return event_data
 
             if frame.content_type == "command/reply":
+                logger.info(f"Received command reply before CHANNEL_DATA: headers={frame.headers}, body={frame.body!r}")
                 continue
 
             if frame.headers:
-                logger.debug(f"Skipping ESL frame while waiting for CHANNEL_DATA: {frame.headers}")
+                logger.warning(
+                    f"Unexpected ESL frame while waiting for CHANNEL_DATA: headers={frame.headers}, body={frame.body!r}"
+                )
 
         raise RuntimeError("Failed to receive CHANNEL_DATA from FreeSWITCH after connect")
 
