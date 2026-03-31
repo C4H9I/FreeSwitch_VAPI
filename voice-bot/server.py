@@ -58,12 +58,19 @@ class OutboundSession:
         self.reader = reader
         self.writer = writer
         self.channel_data: dict[str, str] = {}
+        self.uuid: str = ""
         self.hangup_event = asyncio.Event()
         self.reader_task: Optional[asyncio.Task] = None
 
     async def bootstrap(self) -> None:
         await self._send_command("connect")
         self.channel_data = await self._read_channel_data()
+        self.uuid = (
+            self.channel_data.get("Unique-ID")
+            or self.channel_data.get("Channel-Unique-ID")
+            or self.channel_data.get("Caller-Unique-ID")
+            or ""
+        )
         await self._send_command("myevents")
         await self._send_command("linger")
         self.reader_task = asyncio.create_task(self._read_events())
@@ -83,11 +90,10 @@ class OutboundSession:
             self.hangup_event.set()
 
     async def execute(self, app: str, arg: str = "") -> None:
+        sendmsg = f"sendmsg {self.uuid}" if self.uuid else "sendmsg"
         lines = [
-            "sendmsg",
-            "content-type: text/plain",
+            sendmsg,
             "call-command: execute",
-            "event-lock: true",
             f"execute-app-name: {app}",
         ]
         if arg:
