@@ -62,10 +62,6 @@ class OutboundSession:
         self.reader_task: Optional[asyncio.Task] = None
 
     async def bootstrap(self) -> None:
-        frame = await self._read_frame()
-        if frame.content_type != "auth/request":
-            raise RuntimeError(f"Unexpected first frame: {frame.content_type}")
-
         await self._send_command("connect")
         self.channel_data = await self._read_channel_data()
         await self._send_command("myevents")
@@ -147,12 +143,23 @@ class OutboundSession:
         await self.writer.drain()
 
     async def _read_channel_data(self) -> dict[str, str]:
-        for _ in range(5):
+        for _ in range(10):
             frame = await self._read_frame()
+            if frame.content_type == "text/disconnect-notice":
+                reason = frame.headers.get("Content-Disposition") or frame.body or "call disconnected"
+                raise RuntimeError(f"FreeSWITCH closed outbound socket before CHANNEL_DATA: {reason}")
+
+            if frame.content_type == "command/reply":
+                continue
+
             event_data = self._parse_event_body(frame.body)
             if event_data.get("Caller-Caller-ID-Number") or event_data.get("Unique-ID"):
                 return event_data
-        raise RuntimeError("Failed to receive CHANNEL_DATA from FreeSWITCH")
+
+            if frame.headers:
+                logger.debug(f"Skipping ESL frame while waiting for CHANNEL_DATA: {frame.headers}")
+
+        raise RuntimeError("Failed to receive CHANNEL_DATA from FreeSWITCH after connect")
 
     async def _read_frame(self) -> ESLFrame:
         headers: dict[str, str] = {}
