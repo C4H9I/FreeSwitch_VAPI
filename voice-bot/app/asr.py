@@ -1,25 +1,23 @@
 """
-Yandex SpeechKit ASR (Automatic Speech Recognition)
+Yandex SpeechKit ASR.
 """
 
-import asyncio
-from typing import AsyncGenerator, Optional
-from loguru import logger
+from __future__ import annotations
 
-# Проверка доступности Yandex SDK
-YANDEX_STT_AVAILABLE = False
-try:
-    from yandex.cloud.ai.stt.v3 import stt_pb2 as stt
-    from yandex.cloud.ai.stt.v3 import stt_service_pb2 as stt_service
-    from yandex.cloud.ai.stt.v3 import stt_service_pb2_grpc as stt_service_grpc
-    import grpc
-    YANDEX_STT_AVAILABLE = True
-except ImportError as e:
-    logger.warning(f"Yandex STT not available: {e}")
+import io
+import json
+import wave
+from pathlib import Path
+from typing import Optional
+
+import aiohttp
+from loguru import logger
 
 
 class YandexASR:
-    """Класс для распознавания речи через Yandex SpeechKit"""
+    """ASR client via Yandex SpeechKit REST API."""
+
+    ENDPOINT = "https://stt.api.cloud.yandex.net/speech/v1/stt:recognize"
 
     def __init__(
         self,
@@ -28,7 +26,7 @@ class YandexASR:
         language: str = "ru-RU",
         model: str = "general",
         sample_rate: int = 8000,
-        partial_results: bool = True,
+        partial_results: bool = False,
         silence_threshold: float = 1.0,
     ):
         self.api_key = api_key
@@ -38,36 +36,69 @@ class YandexASR:
         self.sample_rate = sample_rate
         self.partial_results = partial_results
         self.silence_threshold = silence_threshold
-        self._channel = None
-        self._stub = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def connect(self) -> None:
-        logger.info("Yandex ASR: Соединение установлено")
+        if self._session is None or self._session.closed:
+            timeout = aiohttp.ClientTimeout(total=60)
+            self._session = aiohttp.ClientSession(timeout=timeout)
+        logger.info("Yandex ASR: connected")
 
     async def close(self) -> None:
-        if self._channel:
-            await self._channel.close()
-            self._channel = None
-            self._stub = None
+        if self._session and not self._session.closed:
+            await self._session.close()
+        self._session = None
 
     async def recognize_stream(self, audio_generator):
-        """Потоковое распознавание"""
-        if not YANDEX_STT_AVAILABLE:
-            yield {"text": "тест распознавания", "is_final": True, "confidence": 1.0}
-            return
-        
-        # Реальная реализация с Yandex SDK
-        # TODO: реализовать при необходимости
-        yield {"text": "", "is_final": True, "confidence": 0.0}
+        raise NotImplementedError("Streaming ASR is not implemented for this minimal agent")
 
-    async def recognize_file(self, audio_data: bytes) -> str:
-        if not YANDEX_STT_AVAILABLE:
-            return "тестовое сообщение"
-        return ""
+    async def recognize_file(self, audio_data: bytes, sample_rate: Optional[int] = None) -> str:
+        if not audio_data:
+            return ""
+
+        await self.connect()
+        assert self._session is not None
+
+        params = {
+            "lang": self.language,
+            "topic": self.model,
+            "format": "lpcm",
+            "sampleRateHertz": str(sample_rate or self.sample_rate),
+        }
+        headers = {
+            "Authorization": f"Api-Key {self.api_key}",
+            "Content-Type": "application/octet-stream",
+        }
+
+        async with self._session.post(
+            self.ENDPOINT,
+            params=params,
+            headers=headers,
+            data=audio_data,
+        ) as response:
+            response_text = await response.text()
+            if response.status >= 400:
+                raise RuntimeError(f"Yandex ASR error {response.status}: {response_text}")
+
+        payload = json.loads(response_text)
+        result = (payload.get("result") or "").strip()
+        logger.info(f"ASR text: {result!r}")
+        return result
+
+    async def recognize_wav(self, wav_path: str | Path) -> str:
+        path = Path(wav_path)
+        if not path.exists():
+            return ""
+
+        with wave.open(str(path), "rb") as wav_file:
+            sample_rate = wav_file.getframerate()
+            audio_data = wav_file.readframes(wav_file.getnframes())
+
+        return await self.recognize_file(audio_data, sample_rate=sample_rate)
 
 
 class MockASR:
-    """Mock ASR для тестирования"""
+    """Mock ASR for offline testing."""
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -82,12 +113,15 @@ class MockASR:
     async def recognize_stream(self, audio_generator):
         yield {"text": "тестовое сообщение", "is_final": True, "confidence": 1.0}
 
-    async def recognize_file(self, audio_data: bytes) -> str:
+    async def recognize_file(self, audio_data: bytes, sample_rate: Optional[int] = None) -> str:
+        return "тестовое сообщение"
+
+    async def recognize_wav(self, wav_path: str | Path) -> str:
         return "тестовое сообщение"
 
 
 def create_asr(api_key: str, folder_id: Optional[str] = None, use_mock: bool = False, **kwargs):
-    if use_mock or not api_key or not YANDEX_STT_AVAILABLE:
+    if use_mock or not api_key:
         logger.warning("Using Mock ASR")
         return MockASR(api_key=api_key, folder_id=folder_id, **kwargs)
     return YandexASR(api_key=api_key, folder_id=folder_id, **kwargs)
