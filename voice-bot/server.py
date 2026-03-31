@@ -62,6 +62,7 @@ class OutboundSession:
         self.reader_task: Optional[asyncio.Task] = None
 
     async def bootstrap(self) -> None:
+        await self._send_command("connect")
         self.channel_data = await self._read_channel_data()
         await self._send_command("myevents")
         await self._send_command("linger")
@@ -138,7 +139,7 @@ class OutboundSession:
             return
 
     async def _send_command(self, payload: str) -> None:
-        self.writer.write((payload + "\n\n").encode("utf-8"))
+        self.writer.write((payload + "\r\n\r\n").encode("utf-8"))
         await self.writer.drain()
 
     async def _read_channel_data(self) -> dict[str, str]:
