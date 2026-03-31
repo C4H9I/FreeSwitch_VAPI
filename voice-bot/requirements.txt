@@ -2,15 +2,15 @@
 # Python 3.10+
 
 # ESL (Event Socket Layer) клиент для FreeSWITCH
-eventsocket>=2.0.0
-greenlet-esl>=0.1.0
+eventsocket
+#greenlet-esl
 
 # AsyncIO
 aiohttp>=3.9.0
 websockets>=12.0
 
 # Yandex SpeechKit
-yandex-cloud>=0.9.0
+yandex-cloud
 grpcio>=1.60.0
 grpcio-tools>=1.60.0
 
