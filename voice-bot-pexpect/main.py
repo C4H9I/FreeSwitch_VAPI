@@ -290,6 +290,8 @@ def main():
         # Подключение
         mgr.connect()
 
+        print("Подключение установлено \n")
+
         if args.once:
             # Режим "показать и выйти"
             channels = mgr.get_active_channels()
