@@ -92,6 +92,25 @@ class OutboundSession:
         try:
             while not self.reader.at_eof():
                 frame = await self._read_frame()
+                event = self._frame_to_event(frame)
+                if event:
+                    event_name = event.get("Event-Name", "")
+                    channel_state = event.get("Channel-State", "")
+
+                    if event_name == "CHANNEL_ANSWER" or channel_state == "CS_EXECUTE":
+                        self.channel_answered.set()
+
+                    if event_name.startswith("CHANNEL_HANGUP") or frame.content_type == "text/disconnect-notice":
+                        self.hangup_event.set()
+
+                    for idx, (predicate, waiter) in enumerate(list(self._event_waiters)):
+                        if waiter.done():
+                            continue
+                        if predicate(event):
+                            waiter.set_result(event)
+                            self._event_waiters.pop(idx)
+                            break
+
                 if frame.content_type in {"command/reply", "api/response"}:
                     if self._reply_waiters:
                         waiter = self._reply_waiters.pop(0)
@@ -99,28 +118,6 @@ class OutboundSession:
                             waiter.set_result(frame)
                     else:
                         logger.debug(f"Orphan command reply: headers={frame.headers} body={frame.body!r}")
-                    continue
-
-                event = self._frame_to_event(frame)
-                if not event:
-                    continue
-
-                event_name = event.get("Event-Name", "")
-                channel_state = event.get("Channel-State", "")
-
-                if event_name == "CHANNEL_ANSWER" or channel_state == "CS_EXECUTE":
-                    self.channel_answered.set()
-
-                if event_name.startswith("CHANNEL_HANGUP") or frame.content_type == "text/disconnect-notice":
-                    self.hangup_event.set()
-
-                for idx, (predicate, waiter) in enumerate(list(self._event_waiters)):
-                    if waiter.done():
-                        continue
-                    if predicate(event):
-                        waiter.set_result(event)
-                        self._event_waiters.pop(idx)
-                        break
         except Exception as exc:
             logger.warning(f"ESL event reader stopped: {exc}")
             self.hangup_event.set()
@@ -149,11 +146,7 @@ class OutboundSession:
             lambda event: (
                 event.get("Event-Name") == "CHANNEL_EXECUTE_COMPLETE"
                 and event.get("Application") == app
-                and (
-                    not arg
-                    or event.get("Application-Data", "") == arg
-                    or event.get("Application-Data", "").endswith(arg)
-                )
+                and (not self.uuid or event.get("Unique-ID", self.uuid) == self.uuid)
             )
         )
         logger.info(f"ESL execute: app={app!r} arg={arg!r}")
