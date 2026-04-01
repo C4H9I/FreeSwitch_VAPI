@@ -374,7 +374,7 @@ class FreeSwitchManager:
         Raises:
             FreeSwitchError: если не удалось получить список каналов
         """
-        output = self.execute("show channels")
+        output = self.execute("show channels as delim |")
         channels = self._parse_channels(output)
 
         logger.info("Найдено %d активных каналов", len(channels))
