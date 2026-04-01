@@ -12,6 +12,7 @@ import os
 import sys
 import tempfile
 import time
+from urllib.parse import unquote
 import wave
 from pathlib import Path
 from typing import Callable, Optional
@@ -138,9 +139,18 @@ class OutboundSession:
         complete_timeout: float = 30.0,
         strict_complete: bool = True,
     ) -> dict[str, str]:
-        # Use outbound socket native command format:
-        # "<app> <arg>" (e.g. "playback /tmp/a.wav", "record /tmp/r.wav 10 200 3", "hangup")
-        payload = f"{app} {arg}".strip()
+        sendmsg_lines = [
+            "sendmsg",
+            "call-command: execute",
+            f"execute-app-name: {app}",
+        ]
+        if arg:
+            sendmsg_lines.append(f"execute-app-arg: {arg}")
+        payload_candidates = [
+            "\n".join(sendmsg_lines),
+            f"execute {app} {arg}".strip(),
+            f"{app} {arg}".strip(),
+        ]
 
         execute_complete_waiter = self._register_event_waiter(
             lambda event: (
@@ -157,11 +167,20 @@ class OutboundSession:
             )
         )
         logger.info(f"ESL execute: app={app!r} arg={arg!r}")
-        reply = await self._send_command(payload)
-        reply_text = reply.headers.get("Reply-Text", "") or reply.body
-        if "+OK" not in reply_text:
+        reply_text = ""
+        reply: Optional[ESLFrame] = None
+        for payload in payload_candidates:
+            reply = await self._send_command(payload)
+            raw_reply_text = reply.headers.get("Reply-Text", "") or reply.body
+            reply_text = unquote(raw_reply_text or "").strip()
+            if "+OK" in reply_text:
+                break
+            logger.warning(
+                f"ESL execute attempt rejected for app={app!r}: payload={payload!r} reply={reply_text!r}"
+            )
+        else:
             execute_complete_waiter.cancel()
-            raise RuntimeError(f"FreeSWITCH execute rejected: app={app}, reply={reply_text or reply.body!r}")
+            raise RuntimeError(f"FreeSWITCH execute rejected: app={app}, reply={reply_text!r}")
 
         try:
             return await asyncio.wait_for(execute_complete_waiter, timeout=complete_timeout)
