@@ -179,8 +179,9 @@ class FreeSwitchManager:
         Raises:
             FreeSwitchError: если подключение не удалось
         """
+        logger.info("Starting connection to FreeSWITCH")
         logger.info("Подключение к %s@%s:%d ...", self.ssh_user, self.ssh_host, self.ssh_port)
-
+        logger.info("After MSG")
         try:
             # Формируем команду SSH
             ssh_cmd = f"ssh -o StrictHostKeyChecking=no -p {self.ssh_port}"
@@ -197,7 +198,7 @@ class FreeSwitchManager:
                 encoding="utf-8",
                 codec_errors="replace",
             )
-
+            logger.info("By passwd")
             # Авторизация по паролю (если не используется ключ)
             if not self.ssh_key_file:
                 self._session.expect(["password:", pexpect.TIMEOUT, pexpect.EOF])
@@ -208,7 +209,7 @@ class FreeSwitchManager:
                         command="ssh",
                         message="Не удалось получить приглашение ввода пароля SSH"
                     )
-
+            logger.info("Wait")
             # Ждём приглашение оболочки
             self._session.expect(r"[\$#]\s*$", timeout=self.connect_timeout)
 
