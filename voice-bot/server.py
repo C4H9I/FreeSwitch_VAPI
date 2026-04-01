@@ -143,6 +143,7 @@ class OutboundSession:
             "sendmsg",
             "call-command: execute",
             f"execute-app-name: {app}",
+            "event-lock: true",
         ]
         if arg:
             sendmsg_lines.append(f"execute-app-arg: {arg}")
@@ -197,15 +198,13 @@ class OutboundSession:
     async def playback(self, wav_path: Path) -> None:
         logger.info(f"Playback file: {wav_path} size={wav_path.stat().st_size if wav_path.exists() else 'missing'}")
         duration = max(get_wav_duration(wav_path), 0.1)
+        fallback_wait = duration + 0.25
         await self.execute(
             "playback",
             str(wav_path),
-            complete_timeout=duration + 15.0,
+            complete_timeout=fallback_wait,
             strict_complete=False,
         )
-        # Some FreeSWITCH socket modes do not emit CHANNEL_EXECUTE_COMPLETE reliably for playback.
-        # Keep media actions serialized by waiting for expected media duration as a fallback.
-        await self._sleep_or_hangup(duration + 0.25)
         logger.info("Call state: PLAYBACK_GREETING_COMPLETE")
 
     async def record(self, wav_path: Path, max_seconds: int, silence_threshold: int = 200, silence_hits: int = 3) -> None:
@@ -215,7 +214,7 @@ class OutboundSession:
         await self.execute(
             "record",
             f"{wav_path} {max_seconds} {silence_threshold} {silence_hits}",
-            complete_timeout=max_seconds + 10.0,
+            complete_timeout=0.5,
             strict_complete=False,
         )
         await self._wait_for_recording(wav_path, max_seconds + 2)
