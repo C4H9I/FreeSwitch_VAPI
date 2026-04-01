@@ -181,7 +181,7 @@ class FreeSwitchManager:
         """
         logger.info("Starting connection to FreeSWITCH")
         logger.info("Подключение к %s@%s:%s ...", self.ssh_user, self.ssh_host, self.ssh_port)
-        logger.info("After MSG")
+        print("After MSG\n")
         try:
             # Формируем команду SSH
             ssh_cmd = f"ssh -o StrictHostKeyChecking=no -p {self.ssh_port}"
