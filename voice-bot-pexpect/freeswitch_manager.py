@@ -180,7 +180,7 @@ class FreeSwitchManager:
             FreeSwitchError: если подключение не удалось
         """
         logger.info("Starting connection to FreeSWITCH")
-        logger.info("Подключение к %s@%s:%d ...", self.ssh_user, self.ssh_host, self.ssh_port)
+        logger.info("Подключение к %s@%s:%s ...", self.ssh_user, self.ssh_host, self.ssh_port)
         logger.info("After MSG")
         try:
             # Формируем команду SSH
