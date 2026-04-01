@@ -10,6 +10,7 @@ dependencies = [
     "pexpect>=4.9.0",
     "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",
+    "python-dotenv>=1.2.2",
     "pyyaml>=6.0",
     "signalwire>=2.1.0",
     "signalwire-agents>=1.1.0",
