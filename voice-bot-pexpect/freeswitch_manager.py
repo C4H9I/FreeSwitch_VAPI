@@ -204,7 +204,9 @@ class FreeSwitchManager:
 
             # Авторизация по паролю (если не используется ключ)
             if not self.ssh_key_file:
+                print("2.0\n")
                 self._session.expect(["password:", pexpect.TIMEOUT, pexpect.EOF])
+                print("2.01\n")
                 if self._session.match_index == 0:
                     self._session.sendline(self.ssh_password)
                 else:
@@ -213,8 +215,10 @@ class FreeSwitchManager:
                         message="Не удалось получить приглашение ввода пароля SSH"
                     )
             logger.info("Wait")
+            print("2.1\n")
             # Ждём приглашение оболочки
             self._session.expect(r"[\$#]\s*$", timeout=self.connect_timeout)
+            print("2.2\n")
 
             print("3\n")
             # Создаём директорию для записей на сервере
