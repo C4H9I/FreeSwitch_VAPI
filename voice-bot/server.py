@@ -68,7 +68,12 @@ class OutboundSession:
 
     async def bootstrap(self) -> None:
         logger.info("Call state: INITIAL_SOCKET_CONNECT")
-        self.channel_data = await self._read_channel_data()
+        initial_frame = await self._try_read_initial_frame(timeout=0.5)
+        self.channel_data = self._extract_channel_data(initial_frame) if initial_frame else {}
+        if not self.channel_data:
+            logger.info("No initial CHANNEL_DATA frame, requesting via 'connect'")
+            await self._send_prebootstrap_command("connect")
+            self.channel_data = await self._read_channel_data()
         self.uuid = (
             self.channel_data.get("Unique-ID")
             or self.channel_data.get("Channel-Unique-ID")
@@ -242,6 +247,11 @@ class OutboundSession:
             logger.debug(f"ESL command reply: headers={frame.headers} body={frame.body!r}")
             return frame
 
+    async def _send_prebootstrap_command(self, payload: str) -> None:
+        self.writer.write((payload + "\r\n\r\n").encode("utf-8"))
+        await self.writer.drain()
+        logger.debug(f"ESL prebootstrap command sent: {payload!r}")
+
     async def _read_channel_data(self) -> dict[str, str]:
         for _ in range(10):
             frame = await self._read_frame()
@@ -249,14 +259,10 @@ class OutboundSession:
                 reason = frame.headers.get("Content-Disposition") or frame.body or "call disconnected"
                 raise RuntimeError(f"FreeSWITCH closed outbound socket before CHANNEL_DATA: {reason}")
 
-            if frame.headers.get("Unique-ID") or frame.headers.get("Caller-Caller-ID-Number"):
-                logger.info(f"Received outbound socket headers: {frame.headers}")
-                return frame.headers
-
-            event_data = self._parse_event_body(frame.body)
-            if event_data.get("Caller-Caller-ID-Number") or event_data.get("Unique-ID"):
-                logger.info(f"Received outbound socket event data: {event_data}")
-                return event_data
+            channel_data = self._extract_channel_data(frame)
+            if channel_data:
+                logger.info(f"Received outbound socket channel data: {channel_data}")
+                return channel_data
 
             if frame.content_type == "command/reply":
                 logger.info(f"Received command reply before CHANNEL_DATA: headers={frame.headers}, body={frame.body!r}")
@@ -291,6 +297,27 @@ class OutboundSession:
             body = raw_body.decode("utf-8", errors="ignore")
 
         return ESLFrame(headers=headers, body=body)
+
+    async def _try_read_initial_frame(self, timeout: float = 0.5) -> Optional[ESLFrame]:
+        try:
+            return await asyncio.wait_for(self._read_frame(), timeout=timeout)
+        except asyncio.TimeoutError:
+            return None
+
+    def _extract_channel_data(self, frame: Optional[ESLFrame]) -> dict[str, str]:
+        if frame is None:
+            return {}
+        if frame.content_type == "text/disconnect-notice":
+            reason = frame.headers.get("Content-Disposition") or frame.body or "call disconnected"
+            raise RuntimeError(f"FreeSWITCH closed outbound socket before CHANNEL_DATA: {reason}")
+
+        if frame.headers.get("Unique-ID") or frame.headers.get("Caller-Caller-ID-Number"):
+            return frame.headers
+
+        event_data = self._parse_event_body(frame.body)
+        if event_data.get("Caller-Caller-ID-Number") or event_data.get("Unique-ID"):
+            return event_data
+        return {}
 
     def _register_event_waiter(self, predicate: Callable[[dict[str, str]], bool]) -> asyncio.Future[dict[str, str]]:
         loop = asyncio.get_running_loop()
