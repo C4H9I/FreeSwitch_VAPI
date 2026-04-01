@@ -43,12 +43,7 @@ def setup_logging(cfg: Settings) -> None:
     logger.add(str(log_path), level=cfg.logging.level, rotation=f"{cfg.logging.max_size} MB")
     esl_trace_path = Path(__file__).parent / "logs" / "esl-trace.log"
     esl_trace_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(
-        str(esl_trace_path),
-        level="INFO",
-        rotation="10 MB",
-        filter=lambda record: "[ESL]" in record["message"],
-    )
+    logger.add(str(esl_trace_path), level=cfg.logging.level, rotation="10 MB")
     logger.info(f"Logging to {log_path}")
     logger.info(f"ESL trace logging to {esl_trace_path}")
 
