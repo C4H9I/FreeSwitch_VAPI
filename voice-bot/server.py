@@ -135,9 +135,8 @@ class OutboundSession:
             self._event_waiters.clear()
 
     async def execute(self, app: str, arg: str = "", complete_timeout: float = 30.0) -> dict[str, str]:
-        sendmsg = f"sendmsg {self.uuid}" if self.uuid else "sendmsg"
         lines = [
-            sendmsg,
+            "sendmsg",
             "call-command: execute",
             f"execute-app-name: {app}",
             "event-lock: true",
@@ -183,6 +182,14 @@ class OutboundSession:
         await self._wait_for_recording(wav_path, max_seconds + 2)
 
     async def answer(self) -> None:
+        answer_state = (self.channel_data.get("Answer-State") or "").lower()
+        if answer_state == "answered":
+            logger.info("Call state: ANSWER skipped (already answered in dialplan)")
+            logger.info("Call state: MEDIA_ESTABLISHED_WAIT")
+            await self._sleep_or_hangup(0.25)
+            logger.info("Call state: MEDIA_ESTABLISHED")
+            return
+
         logger.info("Call state: ANSWER")
         await self.execute("answer", complete_timeout=10.0)
         self.channel_answered.set()
