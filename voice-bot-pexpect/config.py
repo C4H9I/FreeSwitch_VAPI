@@ -6,15 +6,15 @@
 """
 
 # ─── SSH-подключение к серверу с FreeSWITCH ─────────────────────────
-SSH_HOST = "192.168.1.100"       # IP-адрес сервера FreeSWITCH
-SSH_PORT = 22                    # SSH-порт
-SSH_USER = "freeswitch"          # Пользователь SSH
+SSH_HOST = "localhost"       # IP-адрес сервера FreeSWITCH
+SSH_PORT = 11221                  # SSH-порт
+SSH_USER = "frsw"          # Пользователь SSH
 SSH_PASSWORD = "password"        # Пароль SSH (можно использовать ключ вместо пароля)
 SSH_KEY_FILE = None              # Путь к SSH-ключу (например "/home/user/.ssh/id_rsa").
                                  # Если указан — пароль игнорируется.
 
 # ─── FreeSWITCH ESL / fs_cli ─────────────────────────────────────────
-FS_CLI_PATH = "/usr/bin/fs_cli"  # Путь к fs_cli на удалённом сервере
+FS_CLI_PATH = "/usr/local/freeswitch/bin/fs_cli"  # Путь к fs_cli на удалённом сервере
 FS_HOST = "127.0.0.1"            # Адрес FreeSWITCH (обычно localhost)
 FS_PORT = 8021                   # ESL-порт FreeSWITCH
 FS_PASSWORD = "ClueCon"          # Пароль ESL FreeSWITCH
