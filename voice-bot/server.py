@@ -138,15 +138,9 @@ class OutboundSession:
         complete_timeout: float = 30.0,
         strict_complete: bool = True,
     ) -> dict[str, str]:
-        lines = [
-            "sendmsg",
-            "call-command: execute",
-            f"execute-app-name: {app}",
-            "event-lock: true",
-        ]
-        if arg:
-            lines.append(f"execute-app-arg: {arg}")
-        payload = "\n".join(lines)
+        # Use outbound socket native command format:
+        # "<app> <arg>" (e.g. "playback /tmp/a.wav", "record /tmp/r.wav 10 200 3", "hangup")
+        payload = f"{app} {arg}".strip()
 
         execute_complete_waiter = self._register_event_waiter(
             lambda event: (
@@ -199,7 +193,12 @@ class OutboundSession:
         logger.info(
             f"Record target: {wav_path} max_seconds={max_seconds} silence_threshold={silence_threshold} silence_hits={silence_hits}"
         )
-        await self.execute("record", f"{wav_path} {max_seconds} {silence_threshold} {silence_hits}", complete_timeout=max_seconds + 10.0)
+        await self.execute(
+            "record",
+            f"{wav_path} {max_seconds} {silence_threshold} {silence_hits}",
+            complete_timeout=max_seconds + 10.0,
+            strict_complete=False,
+        )
         await self._wait_for_recording(wav_path, max_seconds + 2)
 
     async def answer(self) -> None:
@@ -225,7 +224,7 @@ class OutboundSession:
         logger.info("Call state: EVENT_SUBSCRIPTION_READY (implicit outbound socket events)")
 
     async def hangup(self) -> None:
-        await self.execute("hangup", complete_timeout=10.0)
+        await self.execute("hangup", complete_timeout=10.0, strict_complete=False)
         self.hangup_event.set()
 
     async def close(self) -> None:
