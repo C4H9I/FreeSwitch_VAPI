@@ -181,7 +181,7 @@ class FreeSwitchManager:
         """
         logger.info("Starting connection to FreeSWITCH")
         logger.info("Подключение к %s@%s:%s ...", self.ssh_user, self.ssh_host, self.ssh_port)
-        print("After MSG\n")
+
         try:
             # Формируем команду SSH
             ssh_cmd = f"ssh -o StrictHostKeyChecking=no -p {self.ssh_port}"
@@ -190,7 +190,7 @@ class FreeSwitchManager:
                 ssh_cmd += f" -i {self.ssh_key_file}"
             else:
                 ssh_cmd += f" {self.ssh_user}@{self.ssh_host}"
-
+            print("1\n")
             # Запускаем SSH-сессию
             self._session = pexpect.spawn(
                 ssh_cmd,
@@ -199,6 +199,9 @@ class FreeSwitchManager:
                 codec_errors="replace",
             )
             logger.info("By passwd")
+
+            print("2\n")
+
             # Авторизация по паролю (если не используется ключ)
             if not self.ssh_key_file:
                 self._session.expect(["password:", pexpect.TIMEOUT, pexpect.EOF])
@@ -213,6 +216,7 @@ class FreeSwitchManager:
             # Ждём приглашение оболочки
             self._session.expect(r"[\$#]\s*$", timeout=self.connect_timeout)
 
+            print("3\n")
             # Создаём директорию для записей на сервере
             self._session.sendline(f"mkdir -p {self.record_dir}")
             self._session.expect(r"[\$#]\s*$", timeout=self.command_timeout)
@@ -226,6 +230,8 @@ class FreeSwitchManager:
             )
             logger.info("Запуск fs_cli: %s", fs_cmd)
             self._session.sendline(fs_cmd)
+
+            print("4\n")
 
             # Ждём приглашение fs_cli
             self._session.expect(r"freeswitch@", timeout=self.command_timeout)
