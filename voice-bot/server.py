@@ -41,7 +41,16 @@ def setup_logging(cfg: Settings) -> None:
         colorize=True,
     )
     logger.add(str(log_path), level=cfg.logging.level, rotation=f"{cfg.logging.max_size} MB")
+    esl_trace_path = Path(__file__).parent / "logs" / "esl-trace.log"
+    esl_trace_path.parent.mkdir(parents=True, exist_ok=True)
+    logger.add(
+        str(esl_trace_path),
+        level="INFO",
+        rotation="10 MB",
+        filter=lambda record: "[ESL]" in record["message"],
+    )
     logger.info(f"Logging to {log_path}")
+    logger.info(f"ESL trace logging to {esl_trace_path}")
 
 
 class ESLFrame:
@@ -66,6 +75,7 @@ class OutboundSession:
         self._command_lock = asyncio.Lock()
         self._reply_waiters: list[asyncio.Future[ESLFrame]] = []
         self._event_waiters: list[tuple[Callable[[dict[str, str]], bool], asyncio.Future[dict[str, str]]]] = []
+        self.trace_esl = os.getenv("VOICE_BOT_TRACE_ESL", "1").strip().lower() in {"1", "true", "yes", "on"}
 
     async def bootstrap(self) -> None:
         logger.info("Call state: INITIAL_SOCKET_CONNECT")
@@ -282,22 +292,22 @@ class OutboundSession:
             loop = asyncio.get_running_loop()
             waiter: asyncio.Future[ESLFrame] = loop.create_future()
             self._reply_waiters.append(waiter)
+            self._trace_tx(payload)
             self.writer.write((payload + "\r\n\r\n").encode("utf-8"))
             await self.writer.drain()
-            logger.debug(f"ESL command sent: {payload!r}")
             try:
                 frame = await asyncio.wait_for(waiter, timeout=timeout)
             except Exception:
                 if waiter in self._reply_waiters:
                     self._reply_waiters.remove(waiter)
                 raise
-            logger.debug(f"ESL command reply: headers={frame.headers} body={frame.body!r}")
+            self._trace_rx(frame)
             return frame
 
     async def _send_prebootstrap_command(self, payload: str) -> None:
+        self._trace_tx(payload, prebootstrap=True)
         self.writer.write((payload + "\r\n\r\n").encode("utf-8"))
         await self.writer.drain()
-        logger.debug(f"ESL prebootstrap command sent: {payload!r}")
 
     async def _read_channel_data(self) -> dict[str, str]:
         for _ in range(10):
@@ -382,6 +392,25 @@ class OutboundSession:
         if frame.content_type and "Content-Type" not in event:
             event["Content-Type"] = frame.content_type
         return event
+
+    def _trace_tx(self, payload: str, prebootstrap: bool = False) -> None:
+        if not self.trace_esl:
+            return
+        stage = "PREBOOTSTRAP-TX" if prebootstrap else "TX"
+        compact = payload.replace("\r", "\\r").replace("\n", "\\n")
+        logger.info(f"[ESL] {stage} uuid={self.uuid or '-'} cmd={compact}")
+
+    def _trace_rx(self, frame: ESLFrame) -> None:
+        if not self.trace_esl:
+            return
+        reply_text = unquote((frame.headers.get("Reply-Text", "") or "").strip())
+        event_name = frame.headers.get("Event-Name", "")
+        app = frame.headers.get("Application", "")
+        summary = (
+            f"[ESL] RX uuid={self.uuid or '-'} content_type={frame.content_type or '-'} "
+            f"event={event_name or '-'} app={app or '-'} reply={reply_text or '-'}"
+        )
+        logger.info(summary)
 
     @staticmethod
     def _parse_event_body(body: str) -> dict[str, str]:
