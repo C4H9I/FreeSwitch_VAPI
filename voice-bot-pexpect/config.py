@@ -12,7 +12,7 @@ load_dotenv()
 
 # ─── SSH-подключение к серверу с FreeSWITCH ─────────────────────────
 SSH_HOST = os.getenv("SSH_HOST")  # IP-адрес сервера FreeSWITCH
-SSH_PORT = os.getenv("SSH_PORT")  # SSH-порт
+SSH_PORT = int(os.getenv("SSH_PORT", 22))  # SSH-порт
 SSH_USER = os.getenv("SSH_USER")  # Пользователь SSH
 SSH_PASSWORD = os.getenv("SSH_PASSWORD")  # Пароль SSH (можно использовать ключ вместо пароля)
 SSH_KEY_FILE = os.getenv("SSH_KEY_FILE", None)  # Путь к SSH-ключу (например "/home/user/.ssh/id_rsa").
@@ -25,11 +25,11 @@ FS_PORT = os.getenv("FS_PORT")  # ESL-порт FreeSWITCH
 FS_PASSWORD = os.getenv("FS_PASSWORD")  # Пароль ESL FreeSWITCH
 
 # ─── Таймауты ────────────────────────────────────────────────────────
-CONNECT_TIMEOUT = os.getenv("CONNECT_TIMEOUT")  # Таймаут SSH-подключения (секунды)
-COMMAND_TIMEOUT = os.getenv("COMMAND_TIMEOUT")  # Таймаут выполнения команды fs_cli (секунды)
-POLL_INTERVAL = os.getenv("POLL_INTERVAL")  # Интервал опроса новых каналов (секунды)
-RECONNECT_DELAY = os.getenv("RECONNECT_DELAY")  # Задержка перед переподключением при разрыве (секунды)
-MAX_RECONNECT_ATTEMPTS = os.getenv("MAX_RECONNECT_ATTEMPTS")  # бесконечно)
+CONNECT_TIMEOUT = int(os.getenv("CONNECT_TIMEOUT", 10))  # Таймаут SSH-подключения (секунды)
+COMMAND_TIMEOUT = int(os.getenv("COMMAND_TIMEOUT", 5))  # Таймаут выполнения команды fs_cli (секунды)
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 1))  # Интервал опроса новых каналов (секунды)
+RECONNECT_DELAY = int(os.getenv("RECONNECT_DELAY", 5))  # Задержка перед переподключением при разрыве (секунды)
+MAX_RECONNECT_ATTEMPTS = int(os.getenv("MAX_RECONNECT_ATTEMPTS", 10))  # бесконечно)
 
 # ─── Пути к файлам ──────────────────────────────────────────────────
 RECORD_DIR = os.getenv("RECORD_DIR")  # Директория для записи звонков на сервере FreeSWITCH
