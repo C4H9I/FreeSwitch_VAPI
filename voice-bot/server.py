@@ -131,7 +131,13 @@ class OutboundSession:
                     waiter.set_exception(ConnectionError("ESL connection closed"))
             self._event_waiters.clear()
 
-    async def execute(self, app: str, arg: str = "", complete_timeout: float = 30.0) -> dict[str, str]:
+    async def execute(
+        self,
+        app: str,
+        arg: str = "",
+        complete_timeout: float = 30.0,
+        strict_complete: bool = True,
+    ) -> dict[str, str]:
         lines = [
             "sendmsg",
             "call-command: execute",
@@ -144,9 +150,16 @@ class OutboundSession:
 
         execute_complete_waiter = self._register_event_waiter(
             lambda event: (
-                event.get("Event-Name") == "CHANNEL_EXECUTE_COMPLETE"
-                and event.get("Application") == app
-                and (not self.uuid or event.get("Unique-ID", self.uuid) == self.uuid)
+                event.get("Event-Name", "").strip().upper() == "CHANNEL_EXECUTE_COMPLETE"
+                and event.get("Application", "").strip().lower() == app.strip().lower()
+                and (
+                    not self.uuid
+                    or event.get("Unique-ID") == self.uuid
+                    or event.get("Channel-Unique-ID") == self.uuid
+                    or event.get("Channel-Call-UUID") == self.uuid
+                    or event.get("Caller-Unique-ID") == self.uuid
+                    or event.get("variable_uuid") == self.uuid
+                )
             )
         )
         logger.info(f"ESL execute: app={app!r} arg={arg!r}")
@@ -159,12 +172,27 @@ class OutboundSession:
         try:
             return await asyncio.wait_for(execute_complete_waiter, timeout=complete_timeout)
         except asyncio.TimeoutError as exc:
-            raise TimeoutError(f"Timeout waiting CHANNEL_EXECUTE_COMPLETE for app={app!r} arg={arg!r}") from exc
+            if strict_complete:
+                raise TimeoutError(f"Timeout waiting CHANNEL_EXECUTE_COMPLETE for app={app!r} arg={arg!r}") from exc
+            logger.warning(
+                f"No CHANNEL_EXECUTE_COMPLETE for app={app!r}, "
+                f"continue with fallback flow after timeout={complete_timeout:.1f}s"
+            )
+            execute_complete_waiter.cancel()
+            return {}
 
     async def playback(self, wav_path: Path) -> None:
         logger.info(f"Playback file: {wav_path} size={wav_path.stat().st_size if wav_path.exists() else 'missing'}")
         duration = max(get_wav_duration(wav_path), 0.1)
-        await self.execute("playback", str(wav_path), complete_timeout=duration + 15.0)
+        await self.execute(
+            "playback",
+            str(wav_path),
+            complete_timeout=duration + 15.0,
+            strict_complete=False,
+        )
+        # Some FreeSWITCH socket modes do not emit CHANNEL_EXECUTE_COMPLETE reliably for playback.
+        # Keep media actions serialized by waiting for expected media duration as a fallback.
+        await self._sleep_or_hangup(duration + 0.25)
         logger.info("Call state: PLAYBACK_GREETING_COMPLETE")
 
     async def record(self, wav_path: Path, max_seconds: int, silence_threshold: int = 200, silence_hits: int = 3) -> None:
@@ -191,8 +219,10 @@ class OutboundSession:
         logger.info("Call state: MEDIA_ESTABLISHED")
 
     async def enable_events(self) -> None:
-        await self._send_command("myevents")
-        await self._send_command("linger")
+        # In outbound "socket ... async full" FreeSWITCH already provides
+        # channel control/events context for this call. Explicit myevents/linger
+        # can be unsupported on some builds and trigger "Invalid Command!".
+        logger.info("Call state: EVENT_SUBSCRIPTION_READY (implicit outbound socket events)")
 
     async def hangup(self) -> None:
         await self.execute("hangup", complete_timeout=10.0)
