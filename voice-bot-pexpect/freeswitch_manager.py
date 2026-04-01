@@ -240,6 +240,8 @@ class FreeSwitchManager:
             # Ждём приглашение fs_cli
             self._session.expect(r"freeswitch@", timeout=self.command_timeout)
 
+            self.execute("console loglevel crit")
+
             self._connected = True
             self._known_uuids = set()
             logger.info("Успешное подключение к FreeSWITCH")
